@@ -113,6 +113,8 @@ FOREIGN KEY (direccion) REFERENCES Direccion (Identificador),
 FOREIGN KEY (categoria_principal) REFERENCES Categoria (Identificador)
 );
 
+CREATE SEQUENCE seq_lugar START WITH 1 INCREMENT BY 1;
+
 --Sitioweb(idlugar, sitio)
 
     
@@ -197,7 +199,7 @@ CREATE TABLE Propietario(
     FOREIGN KEY(cuenta) REFERENCES Cuenta(correo_electronico)
 );
 
-CREATE TABLE Es_Dueño(
+CREATE TABLE Es_Dueno(
     propietario VARCHAR(80), 
     lugar NUMBER(12), 
     fecha_comienzo DATE, 
@@ -205,4 +207,4 @@ CREATE TABLE Es_Dueño(
     PRIMARY KEY(propietario,lugar),
     FOREIGN KEY(lugar) REFERENCES Lugar(Identificador),
     FOREIGN KEY(propietario) REFERENCES Propietario(cuenta)
-)
+);
