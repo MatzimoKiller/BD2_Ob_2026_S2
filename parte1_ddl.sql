@@ -90,30 +90,27 @@ Dada_Por(respuesta, propietario)
 
 --Direccion(id, numero, calle, ciudad, pais) //Colocamos su tipo?
 CREATE TABLE Direccion(
-Identificador NUMBER(12),
+Identificador NUMBER(12) GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 Numero NUMBER(5) NOT NULL,-- puse 5 por si acaso
 Calle VARCHAR (50) NOT NULL,
 Ciudad VARCHAR (50) NOT NULL,
-Pais VARCHAR (50) NOT NULL,
-PRIMARY KEY (Identificador)
+Pais VARCHAR (50) NOT NULL
 );
 
 --Lugar( id, estado, nombre, longitud, latitud, direccion, categoria_principal)
     
 CREATE TABLE Lugar(
-Identificador NUMBER(12),
+Identificador NUMBER(12) GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 Estado CHAR(2) NOT NULL CHECK(Estado in ('OP','CT','CD')),
 Nombre VARCHAR(20) NOT NULL,
 Longitud NUMBER(3) NOT NULL,--Longitud va de -180 a 180
 Latitud NUMBER(2) NOT NULL,--Latitud va de -90 a 90
-Direccion NUMBER(12),
+Direccion NUMBER(12) NOT NULL,
 Categoria_principal NUMBER(12),
-PRIMARY KEY (Identificador),
 FOREIGN KEY (direccion) REFERENCES Direccion (Identificador),
 FOREIGN KEY (categoria_principal) REFERENCES Categoria (Identificador)
 );
 
-CREATE SEQUENCE seq_lugar START WITH 1 INCREMENT BY 1;
 
 --Sitioweb(idlugar, sitio)
 
