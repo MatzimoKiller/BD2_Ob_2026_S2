@@ -193,6 +193,7 @@ CREATE TABLE Resenia(
     FOREIGN KEY (IdCuenta) REFERENCES Cuenta(Correo_Electronico),
     FOREIGN KEY (IdResenia) REFERENCES Resenia(Identificador)
 );
+
 --Respuesta(id, texto, fecha_publicacion, resenia)
 	
 CREATE TABLE Respuesta(
@@ -203,6 +204,7 @@ CREATE TABLE Respuesta(
     PRIMARY KEY (Identificador),
     FOREIGN KEY (IdResenia) REFERENCES Resenia(Identificador)
 );
+
 --Dada_Por(respuesta, propietario)
 CREATE TABLE Dada_Por(
     IdRespuesta NUMBER(12),
@@ -211,6 +213,7 @@ CREATE TABLE Dada_Por(
     FOREIGN KEY (IdRespuesta) REFERENCES Respuesta(Identificador),
     FOREIGN KEY (IdPropietario) REFERENCES Propietario(IdCuenta) 
 );
+
 --Datos de prueba, revisar que no se rompan las FK, CHECK, UNIQUE, etc. y que se cumplan los requisitos de cada tabla.
 -- CASOS DE PRUEBA (Oracle)
 -- Requisitos sobre el DDL:
