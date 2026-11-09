@@ -57,7 +57,7 @@ BEGIN
         SELECT count(*)
         INTO v_cant_prop
         FROM Propietario
-        WHERE cuenta = p_propietario;
+        WHERE IdCuenta = p_propietario;
 
         IF v_cant_prop <> 1 THEN
             RAISE_APPLICATION_ERROR(-20102, 'Error, se ingreso un propietario inexistente');
@@ -193,3 +193,117 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END crear_lugar_2_1;
+
+/*Requerimiento 2.2
+Implementar un servicio que permita la transferencia de la titularidad de un lugar entre dos cuentas.
+Se debe verificar que la cuenta que transfiere sea realmente la que administra el lugar y que ambas
+se encuentren correctamente habilitadas para la transferencia.*/
+
+
+CREATE OR REPLACE PROCEDURE transferir_propietario_2_2 (
+    p_prop_actual IN propietario.IdCuenta%TYPE,
+    p_prop_nuevo IN propietario.IdCuenta%TYPE,
+    p_lugar IN Lugar.Identificador%TYPE
+)AS
+    v_cant_prop_actual NUMBER;
+    v_cant_prop_actual_activo NUMBER;
+    v_cant_prop_nuevo NUMBER;
+    v_cant_prop_nuevo_activo NUMBER;
+    v_cant_lugar NUMBER;
+    v_cant_duenio NUMBER;
+BEGIN
+
+    --VALIDAR PROPIETARIOS DIFERENTES
+    IF p_prop_actual = p_prop_nuevo THEN
+    RAISE_APPLICATION_ERROR(
+        -20200,
+        'El propietario actual y el nuevo deben ser diferentes'
+    );
+    END IF;
+    
+    --VALIDAR PROPIETARIO ACTUAL
+    --Existe
+    SELECT count(*)
+    INTO v_cant_prop_actual
+    FROM Propietario
+    WHERE IdCuenta = p_prop_actual;
+
+    IF v_cant_prop_actual <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20201, 'Error, se ingreso un propietario actual inexistente');
+    END IF;
+
+    --Esta activo
+    SELECT count(*)
+    INTO v_cant_prop_actual_activo
+    FROM Cuenta
+    WHERE Correo_Electronico = p_prop_actual
+    AND estado = 'A';
+
+    IF v_cant_prop_actual_activo <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20202, 'Error, el propietario actual ingresado no esta activo');
+    END IF;
+
+    --VALIDAR PROPIETARIO NUEVO
+    --Existe
+    SELECT count(*)
+    INTO v_cant_prop_nuevo
+    FROM Propietario
+    WHERE IdCuenta = p_prop_nuevo;
+
+    IF v_cant_prop_nuevo <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20203, 'Error, se ingreso un propietario nuevo inexistente');
+    END IF;
+
+    --Esta activo
+    SELECT count(*)
+    INTO v_cant_prop_nuevo_activo
+    FROM Cuenta
+    WHERE Correo_Electronico = p_prop_nuevo
+    AND estado = 'A';
+
+    IF v_cant_prop_nuevo_activo <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20204, 'Error, el propietario nuevo ingresado no esta activo');
+    END IF;
+
+
+    --VALIDAR LUGAR
+    --Existe
+    SELECT count(*)
+    INTO v_cant_lugar
+    FROM Lugar
+    WHERE Identificador = p_lugar;
+
+    IF v_cant_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20205, 'Error, el lugar ingresado no existe');
+    END IF;
+
+    --El propietario actual posee el lugar
+    SELECT count(*)
+    INTO v_cant_duenio
+    FROM Es_Duenio
+    WHERE IdPropietario = p_prop_actual
+    AND IdLugar = p_lugar
+    AND ((Fecha_Fin IS NULL) OR (Fecha_Fin > SYSDATE));
+
+    IF v_cant_duenio <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20206, 'Error, el lugar no pertenece al duenio actual especificado');
+    END IF;
+
+    --Todas las validaciones completadas, se procede con la transferencia
+    
+    --Actualizar fecha fin del propietario actual
+    UPDATE Es_Duenio
+    SET Fecha_Fin = SYSDATE
+    WHERE IdPropietario = p_prop_actual
+    AND IdLugar = p_lugar
+    AND (Fecha_Fin IS NULL OR Fecha_Fin > SYSDATE);
+
+    --Insertar tupla para es_Duenio
+    INSERT INTO Es_Duenio (IdPropietario, IdLugar, Fecha_Comienzo)
+    VALUES (p_prop_nuevo, p_lugar, SYSDATE);
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END transferir_propietario_2_2;

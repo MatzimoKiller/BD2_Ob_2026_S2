@@ -159,7 +159,7 @@ CREATE TABLE Es_Duenio(
     IdLugar NUMBER(12), 
     Fecha_Comienzo DATE DEFAULT SYSDATE NOT NULL, --al crearlo, en ese momento comienza a ser dueño
     Fecha_Fin DATE, --Solo al cerrar el lugar o intercambiar de duenio??
-    PRIMARY KEY(IdPropietario, IdLugar), -- ver bien //que pasa si vende y vuelve a comprar? se puede volver a poner la misma fecha de comienzo? o se puede poner una fecha de fin y luego otra de comienzo?
+    PRIMARY KEY(IdPropietario, IdLugar, Fecha_Comienzo), -- ver bien //que pasa si vende y vuelve a comprar? se puede volver a poner la misma fecha de comienzo? o se puede poner una fecha de fin y luego otra de comienzo?
     FOREIGN KEY(IdLugar) REFERENCES Lugar(Identificador),
     FOREIGN KEY(IdPropietario) REFERENCES Propietario(IdCuenta)
 );
