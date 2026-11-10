@@ -64,16 +64,18 @@ CREATE OR REPLACE PROCEDURE crear_lugar_2_1 (
     v_id_direccion Direccion.Identificador%TYPE; --id de la direccion, tomara un valor u otro dependiendo de lo que ingrese el usuario
     
 BEGIN
-    v_direccion_insertada NUMBER := 0;
-    v_valores_direccion NUMBER := 0;
-    v_contenedor_insertado NUMBER := 0;
+    v_direccion_insertada := 0;
+    v_valores_direccion := 0;
+    v_contenedor_insertado := 0;
 
 
     --VALIDAR CATEGORIA
-    SELECT count(*)
-    INTO v_cant_cat
-    FROM Categoria
-    WHERE Identificador = p_categoria_principal;
+    validar_existencia(
+        p_valor_existencia => p_categoria_principal,
+        p_tabla => 'CATEGORIA',
+        p_campo => 'IDENTIFICADOR',
+        p_out => v_cant_cat
+    );
 
     IF v_cant_cat <> 1 THEN
         RAISE_APPLICATION_ERROR(-20101, 'Error, se ingreso una categoria inexistente');
@@ -81,11 +83,13 @@ BEGIN
     
     --VALIDAR PROPIETARIO
     IF p_propietario is not null then
-        SELECT count(*)
-        INTO v_cant_prop
-        FROM Propietario
-        WHERE IdCuenta = p_propietario;
-
+        validar_existencia(
+            p_valor_existencia => p_propietario,
+            p_tabla => 'Propietario',
+            p_campo => 'IdCuenta',
+            p_out => v_cant_prop
+        );
+        
         IF v_cant_prop <> 1 THEN
             RAISE_APPLICATION_ERROR(-20102, 'Error, se ingreso un propietario inexistente');
         END IF;
@@ -94,10 +98,12 @@ BEGIN
 
     --VALIDAR CONTENIDO
     IF p_contenedor is not null then
-        SELECT count(*)
-        INTO v_cant_contenedor
-        FROM Lugar
-        WHERE Identificador = p_contenedor;
+        validar_existencia(
+            p_valor_existencia => p_contenedor,
+            p_tabla => 'Lugar',
+            p_campo => 'Identificador',
+            p_out => v_cant_contenedor
+        );
 
         IF v_cant_contenedor <> 1 THEN
             RAISE_APPLICATION_ERROR(-20103, 'Error, se ingreso un lugar contenedor inexistente');
@@ -117,11 +123,12 @@ BEGIN
     --Por id de direccion
     IF p_direccion IS NOT NULL THEN
 
-        SELECT count(*)
-        INTO v_direccion_insertada
-        FROM Direccion
-        WHERE Identificador = p_direccion;
-
+    validar_existencia(
+        p_valor_existencia => p_direccion,
+        p_tabla => 'DIRECCION',
+        p_campo => 'IDENTIFICADOR',
+        p_out => v_direccion_insertada
+    );
         IF v_direccion_insertada <> 1 THEN
             RAISE_APPLICATION_ERROR(-20104, 'Error, se ingreso un id de direccion inexistente');
         END IF;
@@ -252,10 +259,12 @@ BEGIN
     
     --VALIDAR PROPIETARIO ACTUAL
     --Existe
-    SELECT count(*)
-    INTO v_cant_prop_actual
-    FROM Propietario
-    WHERE IdCuenta = p_prop_actual;
+    validar_existencia(
+        p_valor_existencia => p_prop_actual,
+        p_tabla => 'Propietario',
+        p_campo => 'IdCuenta',
+        p_out => v_cant_prop_actual
+    );
 
     IF v_cant_prop_actual <> 1 THEN
         RAISE_APPLICATION_ERROR(-20201, 'Error, se ingreso un propietario actual inexistente');
@@ -274,10 +283,12 @@ BEGIN
 
     --VALIDAR PROPIETARIO NUEVO
     --Existe
-    SELECT count(*)
-    INTO v_cant_prop_nuevo
-    FROM Propietario
-    WHERE IdCuenta = p_prop_nuevo;
+    validar_existencia(
+        p_valor_existencia => p_prop_nuevo,
+        p_tabla => 'Propietario',
+        p_campo => 'IdCuenta',
+        p_out => v_cant_prop_nuevo
+    );
 
     IF v_cant_prop_nuevo <> 1 THEN
         RAISE_APPLICATION_ERROR(-20203, 'Error, se ingreso un propietario nuevo inexistente');
@@ -297,10 +308,12 @@ BEGIN
 
     --VALIDAR LUGAR
     --Existe
-    SELECT count(*)
-    INTO v_cant_lugar
-    FROM Lugar
-    WHERE Identificador = p_lugar;
+    validar_existencia(
+        p_valor_existencia => p_lugar,
+        p_tabla => 'Lugar',
+        p_campo => 'Identificador',
+        p_out => v_cant_lugar
+    );
 
     IF v_cant_lugar <> 1 THEN
         RAISE_APPLICATION_ERROR(-20205, 'Error, el lugar ingresado no existe');
@@ -336,3 +349,4 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END transferir_propietario_2_2;
+
