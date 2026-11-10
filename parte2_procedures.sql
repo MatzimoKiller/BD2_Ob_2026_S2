@@ -187,12 +187,14 @@ BEGIN
             sysdate
         );
     END IF;
-
+    COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
         RAISE;
 END crear_lugar_2_1;
+
+
 
 /*Requerimiento 2.2
 Implementar un servicio que permita la transferencia de la titularidad de un lugar entre dos cuentas.
@@ -301,7 +303,7 @@ BEGIN
     --Insertar tupla para es_Duenio
     INSERT INTO Es_Duenio (IdPropietario, IdLugar, Fecha_Comienzo)
     VALUES (p_prop_nuevo, p_lugar, SYSDATE);
-
+    COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
