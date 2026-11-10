@@ -3,19 +3,26 @@ Se solicita cumplir con los siguientes requerimientos para la gestión de cuenta
 horarios, fotografías y reseñas (relacional):*/
 
 
-
+--Procedure auxiliar, sirve para validar cuantos registros en una tabla tiene el valor especificado. Está pensado para PKs. 
 CREATE OR REPLACE PROCEDURE validar_existencia (
     p_valor_existencia IN VARCHAR2,
     p_tabla IN VARCHAR2,
     p_campo IN VARCHAR2,
     p_out OUT NUMBER
-)AS
+) AS
     v_sql VARCHAR2(1000);
 BEGIN
 
-    v_sql := 'SELECT COUNT(*) FROM '
-             || p_tabla ||
-             ' WHERE ' || p_campo || ' = :valor';
+    v_sql := 'SELECT CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM ' || DBMS_ASSERT.SQL_OBJECT_NAME(p_tabla) || '
+                    WHERE ' || DBMS_ASSERT.SIMPLE_SQL_NAME(p_campo) || ' = :valor
+                )
+                THEN 1
+                ELSE 0
+              END
+              FROM DUAL';
 
     EXECUTE IMMEDIATE v_sql
     INTO p_out
