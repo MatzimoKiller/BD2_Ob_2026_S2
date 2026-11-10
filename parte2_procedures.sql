@@ -1,11 +1,31 @@
 /*Parte 2
 Se solicita cumplir con los siguientes requerimientos para la gestión de cuentas, lugares, categorías,
-horarios, fotografías y reseñas (relacional):
+horarios, fotografías y reseñas (relacional):*/
 
 
 
+CREATE OR REPLACE PROCEDURE validar_existencia (
+    p_valor_existencia IN VARCHAR2,
+    p_tabla IN VARCHAR2,
+    p_campo IN VARCHAR2,
+    p_out OUT NUMBER
+)AS
+    v_sql VARCHAR2(1000);
+BEGIN
 
-Requerimiento 2.1
+    v_sql := 'SELECT COUNT(*) FROM '
+             || p_tabla ||
+             ' WHERE ' || p_campo || ' = :valor';
+
+    EXECUTE IMMEDIATE v_sql
+    INTO p_out
+    USING p_valor_existencia;
+
+END validar_existencia;
+
+
+
+/*Requerimiento 2.1
 Implementar un servicio para facilitar la creación de un lugar. Se deberán proveer todos los datos
 básicos necesarios para su creación, incluyendo su categoría principal y, si corresponde, el lugar al
 que pertenece y su propietario.*/
