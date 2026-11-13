@@ -4,6 +4,15 @@ horarios, fotografías y reseñas (relacional):*/
 
 
 --Procedure auxiliar, sirve para validar cuantos registros en una tabla tiene el valor especificado. Está pensado para PKs. 
+/*Ejemplo para invocarlo
+    validar_existencia(
+        p_valor_existencia => PARAMETRO_DE_ENTRADA_CON_ID,
+        p_tabla => 'TABLA_A_REVISAR',
+        p_campo => 'CAMPO_PK',
+        p_out => RESULTADO_A_CONSULTAR
+    );
+*/
+--Da resultado 1 cuando existe un registro para el id y 0 caso contrario.
 CREATE OR REPLACE PROCEDURE validar_existencia (
     p_valor_existencia IN VARCHAR2,
     p_tabla IN VARCHAR2,
@@ -350,3 +359,120 @@ EXCEPTION
         RAISE;
 END transferir_propietario_2_2;
 
+
+
+
+
+
+
+
+/*Requerimiento 2.3
+Implementar un servicio que permita a una cuenta subir una fotografía de un lugar. Es importante
+considerar que el número de foto debe asignarse de forma correlativa dentro del lugar.*/
+CREATE OR REPLACE PROCEDURE subir_foto_2_3 (
+    p_cuenta IN Cuenta.correo_electronico%TYPE,
+    p_lugar IN Fotografia.idlugar%TYPE,
+    p_imagen IN Fotografia.imagen%TYPE,
+    p_fecha_tomada IN Fotografia.fecha_tomada%TYPE default null,
+    p_descripcion IN Fotografia.descripcion%TYPE default null
+) AS
+    v_existe_lugar NUMBER;
+    v_existe_cuenta NUMBER;
+    v_cuenta_activa NUMBER;
+    v_numero_foto NUMBER;
+    v_bloqueo_lugar Lugar.Identificador%TYPE;
+BEGIN
+
+    --VALIDAR LUGAR
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_lugar,
+        p_tabla => 'LUGAR',
+        p_campo => 'Identificador',
+        p_out => v_existe_lugar
+    );
+
+    IF v_existe_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20301, 'Error, se ingreso un lugar inexistente');
+    END IF;
+
+    --VALIDAR CUENTA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'CUENTA',
+        p_campo => 'Correo_Electronico',
+        p_out => v_existe_cuenta
+    );
+
+    IF v_existe_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20302, 'Error, se ingreso una cuenta inexistente');
+    END IF;
+
+    --Esta activa
+    SELECT CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM Cuenta
+                    WHERE Correo_Electronico = p_cuenta
+                    AND estado = 'A'
+                )
+                THEN 1
+                ELSE 0
+              END
+    INTO v_cuenta_activa
+    FROM DUAL;
+
+    IF v_cuenta_activa <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20303, 'Error, la cuenta no esta activa');
+    END IF;
+
+    --VALIDACIONES CORRECTAS SE PROCEDE CON LA INSERCIÓN
+
+    --Bloquear identificador de lugar
+    SELECT Identificador
+    INTO v_bloqueo_lugar
+    FROM Lugar
+    WHERE Identificador = p_lugar
+    FOR UPDATE;
+
+    --Generar el número correlativo de la foto
+    SELECT NVL(MAX(Numero_Foto), 0) + 1
+    INTO v_numero_foto
+    FROM Fotografia
+    WHERE IdLugar = p_lugar;
+
+    --Insertar
+    INSERT INTO Fotografia (
+        IdLugar,
+        Identificador,
+        Imagen,
+        Fecha_Tomada,
+        Descripcion
+    )
+    VALUES (
+        p_lugar,
+        v_numero_foto,
+        p_imagen,
+        p_fecha_tomada,
+        p_descripcion
+    );
+
+    INSERT INTO Subida_Por(
+    IdFotografia, 
+    IdLugar, 
+    IdCuenta
+    )
+    VALUES (
+        v_numero_foto,
+        p_lugar,
+        p_cuenta
+    );
+    
+    COMMIT;    
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END subir_foto_2_3;
