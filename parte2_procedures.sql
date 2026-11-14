@@ -895,3 +895,172 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END responder_resenia_2_6;
+
+/*Requerimiento 2.7
+Implementar un servicio que permita a una cuenta indicar que le gustó una reseña, registrando la
+fecha en que lo hizo. Al registrarse el “me gusta”, se deben actualizar los puntos acumulados de la
+cuenta guía local que escribió la reseña.*/
+
+
+CREATE OR REPLACE PROCEDURE dar_me_gusta_2_7 (
+    p_cuenta IN Cuenta.correo_electronico%TYPE,
+    p_resenia IN Resenia.Identificador%TYPE
+) AS
+    v_existe_cuenta NUMBER;
+    v_estado_cuenta Cuenta.estado%TYPE;
+    v_existe_resenia NUMBER;
+    v_me_gusta_previo NUMBER;
+    v_cuenta_resenia Resenia.IdCuenta%TYPE;
+BEGIN
+    --VALIDAR CUENTA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'CUENTA',
+        p_campo => 'Correo_Electronico',
+        p_out => v_existe_cuenta
+    );
+
+    IF v_existe_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20701, 'Error, se ingreso una cuenta inexistente');
+    END IF;
+
+    --Esta activa
+    --Bloquear la cuenta y obtener su estado
+    SELECT estado
+    INTO v_estado_cuenta
+    FROM Cuenta
+    WHERE Correo_Electronico = p_cuenta
+    FOR UPDATE;
+
+    IF v_estado_cuenta <> 'A' THEN
+        RAISE_APPLICATION_ERROR(
+            -20702,
+            'Error, la cuenta no está activa, no puede responder'
+        );
+    END IF;
+
+
+    --VALIDAR RESENIA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_resenia,
+        p_tabla => 'Resenia',
+        p_campo => 'Identificador',
+        p_out => v_existe_resenia
+    );
+
+    IF v_existe_resenia <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20703, 'Error, la resena no existe');
+    END IF;
+
+    --Ya le dio me gusta esta cuenta antes?
+    SELECT CASE 
+        WHEN EXISTS (
+            SELECT 1
+            FROM LeGusta
+            WHERE IdCuenta = p_cuenta
+            AND IdResenia = p_resenia
+        )
+        THEN 1
+        ELSE 0
+        END
+    INTO v_me_gusta_previo
+    FROM DUAL;
+
+    IF v_me_gusta_previo = 1 THEN
+        RAISE_APPLICATION_ERROR(-20704, 'Error, la esta resena ya tiene me gusta de la cuenta indicada');
+    END IF;
+
+    SELECT IdCuenta
+    INTO v_cuenta_resenia
+    FROM Resenia
+    WHERE Identificador = p_resenia;
+
+    IF v_cuenta_resenia = p_cuenta THEN
+        RAISE_APPLICATION_ERROR(-20705,'Error, no puede dar me gusta a una resena propia');
+    END IF;
+
+    --VALIDACIONES CORRECTAS SE PROCEDE CON LA INSERCION
+
+    INSERT INTO LeGusta (
+        IdCuenta,
+        IdResenia
+    )
+    VALUES (
+        p_cuenta,
+        p_resenia
+    );
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END dar_me_gusta_2_7;
+
+CREATE OR REPLACE FUNCTION guia_nivel ( 
+    p_cuenta IN Guia_Local.IdCuenta%TYPE
+    ) 
+RETURN NUMBER AS 
+    v_retorno NUMBER; 
+    v_existe_cuenta NUMBER;
+    v_puntaje_me_gusta NUMBER;
+    v_puntaje_resenas_creadas NUMBER;
+    v_puntaje_base NUMBER;
+    -- v_puntaje_me_gusta + v_puntaje_resenas_creadas  = v_puntaje_base
+    -- v_puntaje_base <= 100 v_retorno = 1
+    -- v_puntaje_base > 100 AND <= 200 v_retorno = 
+    -- ...
+BEGIN 
+    v_puntaje_base := 0;
+
+    --VALIDAR CUENTA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'Guia_Local',
+        p_campo => 'IdCuenta',
+        p_out => v_existe_cuenta
+    );
+
+    IF v_existe_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20902, 'Error, la cuenta no existe o no es un guia local');
+    END IF;
+
+
+    --Calcular puntaje me gusta
+    SELECT COUNT(*)
+    INTO v_puntaje_me_gusta
+    FROM LeGusta lg
+    INNER JOIN Resenia r
+    ON r.Identificador = lg.IdResenia
+    WHERE r.IdCuenta = p_cuenta;
+
+    --Calcular puntaje resenias creadas
+    SELECT COUNT(*)
+    INTO v_puntaje_resenas_creadas
+    FROM Resenia r
+    WHERE r.IdCuenta = p_cuenta;
+
+    v_puntaje_base := v_puntaje_resenas_creadas + v_puntaje_me_gusta;
+
+    SELECT CASE 
+        WHEN v_puntaje_base <= 100 THEN 1
+        WHEN v_puntaje_base BETWEEN 101 AND 200 THEN 2
+        WHEN v_puntaje_base BETWEEN 201 AND 300 THEN 3
+        WHEN v_puntaje_base BETWEEN 301 AND 400 THEN 4
+        WHEN v_puntaje_base BETWEEN 401 AND 500 THEN 5
+        WHEN v_puntaje_base BETWEEN 501 AND 600 THEN 6
+        WHEN v_puntaje_base BETWEEN 601 AND 700 THEN 7
+        WHEN v_puntaje_base >= 701 THEN 8
+        END
+    INTO v_retorno
+    FROM DUAL;
+
+
+    RETURN v_retorno; 
+EXCEPTION 
+    WHEN OTHERS THEN RAISE; 
+END guia_nivel;
