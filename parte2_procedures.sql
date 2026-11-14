@@ -476,3 +476,232 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END subir_foto_2_3;
+
+
+/*Requerimiento 2.4
+Implementar un servicio que permita suspender una cuenta. En el caso de que la cuenta tenga
+reseñas, se debe actualizar la puntuación de los lugares correspondientes.*/
+
+--Usamos una función para calcular la puntuación de los lugares, no es necesario actualizarla en el procedure
+
+CREATE OR REPLACE PROCEDURE suspender_cuenta_2_4 (
+    p_cuenta IN Cuenta.correo_electronico%TYPE
+) AS
+    v_existe_cuenta NUMBER;
+    v_cuenta_activa NUMBER; 
+
+BEGIN
+    --VALIDAR CUENTA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'CUENTA',
+        p_campo => 'Correo_Electronico',
+        p_out => v_existe_cuenta
+    );
+
+    IF v_existe_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20401, 'Error, se ingreso una cuenta inexistente');
+    END IF;
+
+    --Esta activa
+    SELECT CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM Cuenta
+                    WHERE Correo_Electronico = p_cuenta
+                    AND estado = 'A'
+                )
+                THEN 1
+                ELSE 0
+              END
+    INTO v_cuenta_activa
+    FROM DUAL;
+
+    IF v_cuenta_activa <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20404, 'Error, la cuenta ya estaba desactivada');
+    END IF;
+
+
+    --VALIDACIONES CORRECTAS SE PROCEDE CON LA ACTUALIZACION
+
+    UPDATE Cuenta SET Estado = 'S'
+    WHERE correo_electronico = p_cuenta;
+
+    COMMIT;    
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END suspender_cuenta_2_4;
+
+
+CREATE OR REPLACE FUNCTION lugar_puntuacion ( 
+    p_lugar IN Lugar.Identificador%TYPE
+    ) 
+RETURN NUMBER AS 
+    v_retorno NUMBER; 
+    v_existe_lugar NUMBER;
+BEGIN 
+    --VALIDAR LUGAR
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_lugar,
+        p_tabla => 'LUGAR',
+        p_campo => 'Identificador',
+        p_out => v_existe_lugar
+    );
+
+    IF v_existe_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20901, 'Error, se ingreso un lugar inexistente');
+    END IF;
+
+    --Calcular promedio de resenias de cuentas activas
+    SELECT NVL(AVG(puntaje), 0) --Si el lugar no tiene resenias en vez de retornar null retorna 0
+    INTO v_retorno
+    FROM Resenia r
+    INNER JOIN Cuenta c
+    ON c.correo_electronico = r.idCuenta
+    WHERE r.idLugar = p_lugar
+    AND c.estado = 'A';
+
+RETURN v_retorno; 
+
+EXCEPTION 
+WHEN OTHERS THEN RAISE; 
+END lugar_puntuacion;
+
+/*Requerimiento 2.5
+Implementar un servicio que permita a una cuenta publicar una resena sobre un lugar. El servicio
+debe retornar la puntuación media del lugar una vez registrada la reseña.*/
+
+CREATE OR REPLACE PROCEDURE publicar_resenia_2_5 (
+    p_cuenta IN Cuenta.correo_electronico%TYPE,
+    p_lugar IN Lugar.Identificador%TYPE,
+    p_resenia_texto IN Resenia.Texto%TYPE,
+    p_resenia_puntaje IN Resenia.Puntaje%TYPE,
+    p_resenia_idioma IN Resenia.Idioma%TYPE,
+    p_puntuacion OUT NUMBER
+) AS
+    v_existe_cuenta NUMBER;
+    v_estado_cuenta Cuenta.estado%TYPE;
+    v_existe_lugar NUMBER;
+    v_abierto_lugar NUMBER;
+    v_cantidad_resenias_hoy NUMBER;
+BEGIN
+    --VALIDAR CUENTA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'CUENTA',
+        p_campo => 'Correo_Electronico',
+        p_out => v_existe_cuenta
+    );
+
+    IF v_existe_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20501, 'Error, se ingreso una cuenta inexistente');
+    END IF;
+
+    --Esta activa
+
+    -- Bloquear la cuenta y obtener su estado
+    SELECT estado
+    INTO v_estado_cuenta
+    FROM Cuenta
+    WHERE Correo_Electronico = p_cuenta
+    FOR UPDATE;
+
+    IF v_estado_cuenta <> 'A' THEN
+        RAISE_APPLICATION_ERROR(
+            -20502,
+            'Error, la cuenta no está activa, no puede generar resenas'
+        );
+    END IF;
+
+
+    --El puntaje va del 1 al 5
+    IF p_resenia_puntaje IS NULL or p_resenia_puntaje NOT BETWEEN 1 AND 5 THEN
+        RAISE_APPLICATION_ERROR(-20503, 'El puntaje debe estar entre 1 y 5');
+    END IF;
+
+    --VALIDAR LUGAR
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_lugar,
+        p_tabla => 'LUGAR',
+        p_campo => 'Identificador',
+        p_out => v_existe_lugar
+    );
+
+    IF v_existe_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20505, 'Error, se ingreso un lugar inexistente');
+    END IF;
+
+    --Está abierto
+    SELECT CASE WHEN estado = 'CD' THEN 0 ELSE 1 END
+    INTO v_abierto_lugar
+    FROM Lugar
+    WHERE identificador = p_lugar;
+
+    IF v_abierto_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20506, 'Error, se ingreso un lugar cerrado');
+    END IF;
+
+
+    --VALIDACIONES CORRECTAS SE PROCEDE CON LA INSERCION O ACTUALIZCION
+    
+    -- Intentar actualizar una reseña existente
+    UPDATE Resenia
+    SET
+        Texto = p_resenia_texto,
+        Puntaje = p_resenia_puntaje,
+        Idioma = p_resenia_idioma
+    WHERE IdLugar = p_lugar
+    AND IdCuenta = p_cuenta;
+
+    IF SQL%ROWCOUNT = 0 THEN
+
+        -- Solo se comprueba el límite si es una reseña nueva
+        SELECT COUNT(*)
+        INTO v_cantidad_resenias_hoy
+        FROM Resenia
+        WHERE IdCuenta = p_cuenta
+        AND Fecha_Subida >= TRUNC(SYSDATE)
+        AND Fecha_Subida < TRUNC(SYSDATE) + 1;
+
+        IF v_cantidad_resenias_hoy >= 5 THEN
+            RAISE_APPLICATION_ERROR(
+                -20504,
+                'La cuenta ha alcanzado el maximo de resenas por dia'
+            );
+        END IF;
+
+        -- No existía una reseña, se inserta una nueva
+        INSERT INTO Resenia (
+            Texto,
+            Puntaje,
+            Idioma,
+            IdLugar,
+            IdCuenta
+        )
+        VALUES (
+            p_resenia_texto,
+            p_resenia_puntaje,
+            p_resenia_idioma,
+            p_lugar,
+            p_cuenta
+        );
+    END IF;
+
+
+    -- OBTENER PUNTUACION MEDIA ACTUALIZADA
+    p_puntuacion := lugar_puntuacion(p_lugar);
+
+    COMMIT;    
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END publicar_resenia_2_5;
