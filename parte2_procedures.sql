@@ -705,3 +705,193 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END publicar_resenia_2_5;
+
+
+/*Requerimiento 2.6
+Implementar un servicio que permita a una cuenta propietaria responder una reseña recibida por un
+lugar que administra.*/
+
+CREATE OR REPLACE PROCEDURE responder_resenia_2_6 (
+    p_cuenta IN Cuenta.correo_electronico%TYPE,
+    p_lugar IN Lugar.Identificador%TYPE,
+    p_resenia IN Resenia.Identificador%TYPE,
+    p_respuesta_texto IN Respuesta.Texto%TYPE    
+) AS
+    v_existe_cuenta NUMBER;
+    v_estado_cuenta Cuenta.estado%TYPE;
+    v_propietario_cuenta NUMBER;
+    v_existe_lugar NUMBER;
+    v_propietario_lugar NUMBER;
+    v_existe_resenia NUMBER;
+    v_resena_lugar NUMBER;
+    v_existe_respuesta NUMBER;
+    v_id_respuesta Respuesta.Identificador%TYPE;
+    v_resenia_bloqueada Resenia.Identificador%TYPE;
+    v_fecha_resenia Resenia.Fecha_Subida%TYPE;
+BEGIN
+    --VALIDAR CUENTA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'CUENTA',
+        p_campo => 'Correo_Electronico',
+        p_out => v_existe_cuenta
+    );
+
+    IF v_existe_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20601, 'Error, se ingreso una cuenta inexistente');
+    END IF;
+
+    --Esta activa
+    --Bloquear la cuenta y obtener su estado
+    SELECT estado
+    INTO v_estado_cuenta
+    FROM Cuenta
+    WHERE Correo_Electronico = p_cuenta
+    FOR UPDATE;
+
+    IF v_estado_cuenta <> 'A' THEN
+        RAISE_APPLICATION_ERROR(
+            -20602,
+            'Error, la cuenta no está activa, no puede responder'
+        );
+    END IF;
+
+    --Es propietario
+    validar_existencia(
+        p_valor_existencia => p_cuenta,
+        p_tabla => 'Propietario',
+        p_campo => 'IdCuenta',
+        p_out => v_propietario_cuenta
+    );
+    
+    IF v_propietario_cuenta <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20603, 'Error, la cuenta ingresada no es un propietario');
+    END IF;
+
+
+
+    --VALIDAR LUGAR
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_lugar,
+        p_tabla => 'LUGAR',
+        p_campo => 'Identificador',
+        p_out => v_existe_lugar
+    );
+
+    IF v_existe_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20604, 'Error, se ingreso un lugar inexistente');
+    END IF;
+
+
+    --Es propiedad de la cuenta
+    SELECT CASE 
+        WHEN EXISTS (
+            SELECT 1
+            FROM Es_Duenio
+            WHERE IdPropietario = p_cuenta
+            AND IdLugar = p_lugar
+            AND Fecha_Comienzo <= SYSDATE
+            AND (Fecha_Fin IS NULL OR Fecha_Fin > SYSDATE)
+        )
+        THEN 1
+        ELSE 0
+        END
+    INTO v_propietario_lugar
+    FROM DUAL;
+
+    IF v_propietario_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20605, 'Error, la cuenta ingresada no administra el lugar');
+    END IF;
+
+    --VALIDAR RESENIA
+    --Existe
+    validar_existencia(
+        p_valor_existencia => p_resenia,
+        p_tabla => 'Resenia',
+        p_campo => 'Identificador',
+        p_out => v_existe_resenia
+    );
+
+    IF v_existe_resenia <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20606, 'Error, la resena no existe');
+    END IF;
+
+    --La resena es para el lugar indicado
+    SELECT CASE 
+        WHEN EXISTS (
+            SELECT 1
+            FROM Resenia
+            WHERE Identificador = p_resenia
+            AND IdLugar = p_lugar
+        )
+        THEN 1
+        ELSE 0
+        END
+    INTO v_resena_lugar
+    FROM DUAL;
+
+    IF v_resena_lugar <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20607,'La resena no corresponde al lugar indicado');
+    END IF;
+    
+    --VALIDAR QUE LA RESENIA NO HAYA SIDO YA RESPUESTA
+    SELECT Identificador
+    INTO v_resenia_bloqueada
+    FROM Resenia
+    WHERE Identificador = p_resenia
+    FOR UPDATE;
+
+    validar_existencia(
+        p_valor_existencia => p_resenia,
+        p_tabla => 'Respuesta',
+        p_campo => 'IdResenia',
+        p_out => v_existe_respuesta
+    );
+
+    IF v_existe_respuesta = 1 THEN
+        RAISE_APPLICATION_ERROR(-20608,'La resena ya tiene una respuesta');
+    END IF;
+
+    -- Verificar fecha
+    SELECT Fecha_Subida
+    INTO v_fecha_resenia
+    FROM Resenia
+    WHERE Identificador = p_resenia;
+
+    IF SYSDATE <= v_fecha_resenia THEN
+        RAISE_APPLICATION_ERROR(-20609,'La fecha de respuesta debe ser posterior a la fecha de la resena');
+    END IF;
+
+
+
+
+    --VALIDACIONES CORRECTAS SE PROCEDE CON LA INSERCION O ACTUALIZCION
+
+    INSERT INTO Respuesta (
+        Texto,
+        IdResenia
+    )
+    VALUES (
+        p_respuesta_texto,
+        p_resenia
+    )
+    RETURNING Identificador INTO v_id_respuesta;
+
+    INSERT INTO Dada_Por (
+        IdRespuesta,
+        IdPropietario
+    )
+    VALUES(
+        v_id_respuesta,
+        p_cuenta
+    );
+
+    COMMIT;    
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END responder_resenia_2_6;
