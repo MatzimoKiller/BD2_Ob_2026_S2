@@ -1064,3 +1064,39 @@ BEGIN
 EXCEPTION 
     WHEN OTHERS THEN RAISE; 
 END guia_nivel;
+
+
+/*Requerimiento 2.8
+Implementar un servicio que retorne el ranking de las 10 cuentas guía local que más “me gusta”
+recibieron en sus reseñas durante los últimos 30 días, dentro de una ciudad determinada. El servicio
+debe permitir un parámetro opcional para filtrar por categoría principal del lugar reseñado. El listado
+debe incluir el nombre para mostrar de la cuenta, su nivel y la cantidad de “me gusta” recibidos.*/
+
+CREATE OR REPLACE PROCEDURE ranking_guias_2_8 (
+    p_ciudad IN Direccion.Ciudad%TYPE, 
+    p_categoria IN Lugar.categoria_principal%TYPE DEFAULT NULL
+) AS
+BEGIN
+    FOR r IN (
+        SELECT c.Nombre,
+               guia_nivel(gl.IdCuenta) AS nivel,
+               COUNT(lg.idResenia) AS total_me_gusta
+        FROM Cuenta c
+        INNER JOIN Guia_Local gl ON gl.idCuenta = c.correo_electronico
+        INNER JOIN Resenia r ON r.idCuenta = c.correo_electronico
+        INNER JOIN LeGusta lg ON lg.idResenia = r.idResenia
+        INNER JOIN Lugar l ON l.Identificador = r.idLugar
+        INNER JOIN Direccion d on d.identificador = l.direccion
+        WHERE d.ciudad = p_ciudad
+          AND lg.fecha >= SYSDATE - 30 -- Últimos 30 días
+          -- Filtro opcional por categoría principal:
+          AND (p_categoria IS NULL OR l.categoria_principal = p_categoria)
+        GROUP BY c.Nombre, gl.IdCuenta
+        ORDER BY total_me_gusta DESC
+        FETCH FIRST 10 ROWS ONLY -- Limita a las 10 mejores cuentas
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('Guía: ' || r.Nombre ||
+                             ' | Nivel: ' || r.nivel ||
+                             ' | Me gusta: ' || r.total_me_gusta);
+    END LOOP;
+END ranking_guias_2_8;
