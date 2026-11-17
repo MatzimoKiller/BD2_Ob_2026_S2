@@ -166,12 +166,18 @@ BEGIN
             'Error: se deben proporcionar todos los datos de la nueva direccion o ninguno'
         );
     END IF;
+<<<<<<< HEAD
     --PREG: porque el v_contenedor_insertado?
     IF v_valores_direccion + v_direccion_insertada + v_contenedor_insertado <> 1 THEN
         RAISE_APPLICATION_ERROR(-20106, 'Error en las formas de insertar direccion. '||
          'Se debe hacer una de tres, insertar el lugar contenedor, '||
           'insertar el id de una direccion ya existente o insertar los valores para una ' ||
            'direccion nueva');
+=======
+
+    IF v_valores_direccion + v_direccion_insertada + v_contenedor_insertado <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20106, 'Error en las formas de insertar direccion. Se debe hacer una de tres, insertar el lugar contenedor, insertar el id de una direccion ya existente o insertar los valores para una direccion nueva');
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     END IF;
 
     --Validaciones correctas, se insertan los registros 
@@ -338,7 +344,10 @@ BEGIN
     WHERE IdPropietario = p_prop_actual
     AND IdLugar = p_lugar
     AND ((Fecha_Fin IS NULL) OR (Fecha_Fin > SYSDATE));
+<<<<<<< HEAD
     --PREG: porque se ve que la fecha de fin sea mayor a SYSDATE? Es un recoradtorio que va a cerrar?
+=======
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
 
     IF v_cant_duenio <> 1 THEN
         RAISE_APPLICATION_ERROR(-20206, 'Error, el lugar no pertenece al duenio actual especificado');
@@ -355,7 +364,11 @@ BEGIN
 
     --Insertar tupla para es_Duenio
     INSERT INTO Es_Duenio (IdPropietario, IdLugar, Fecha_Comienzo)
+<<<<<<< HEAD
     VALUES (p_prop_nuevo, p_lugar, SYSDATE); --PREG: porque incertar el SYSDATE, se hace automático
+=======
+    VALUES (p_prop_nuevo, p_lugar, SYSDATE);
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
@@ -438,10 +451,17 @@ BEGIN
     INTO v_bloqueo_lugar
     FROM Lugar
     WHERE Identificador = p_lugar
+<<<<<<< HEAD
     FOR UPDATE; --Bloquea esa fila para que otra transacción no pueda modificarla hasta que se ejecute COMMIT o ROLLBACK
 
     --Generar el número correlativo de la foto
     SELECT NVL(MAX(Numero_Foto), 0) + 1 --si no tiene max de numero (NULL) lo cambia a 0, y despues + 1
+=======
+    FOR UPDATE;
+
+    --Generar el número correlativo de la foto
+    SELECT NVL(MAX(Numero_Foto), 0) + 1
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     INTO v_numero_foto
     FROM Fotografia
     WHERE IdLugar = p_lugar;
@@ -449,7 +469,11 @@ BEGIN
     --Insertar
     INSERT INTO Fotografia (
         IdLugar,
+<<<<<<< HEAD
         Identificador, --PREG: cambiar de lugar idLugar e identificaddor, en las tablas es distinto
+=======
+        Identificador,
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
         Imagen,
         Fecha_Tomada,
         Descripcion
@@ -520,7 +544,11 @@ BEGIN
                 ELSE 0
               END
     INTO v_cuenta_activa
+<<<<<<< HEAD
     FROM DUAL; --Calcular un valor sin consultar ninguna tabla
+=======
+    FROM DUAL;
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
 
     IF v_cuenta_activa <> 1 THEN
         RAISE_APPLICATION_ERROR(-20404, 'Error, la cuenta ya estaba desactivada');
@@ -541,7 +569,11 @@ EXCEPTION
 END suspender_cuenta_2_4;
 
 
+<<<<<<< HEAD
 CREATE OR REPLACE FUNCTION lugar_puntuacion ( --PREG: porque en la parte 4 si es del 5?
+=======
+CREATE OR REPLACE FUNCTION lugar_puntuacion ( 
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     p_lugar IN Lugar.Identificador%TYPE
     ) 
 RETURN NUMBER AS 
@@ -558,14 +590,22 @@ BEGIN
     );
 
     IF v_existe_lugar <> 1 THEN
+<<<<<<< HEAD
         RAISE_APPLICATION_ERROR(-20901, 'Error, se ingreso un lugar inexistente'); --/-xx9yy es para funciones
+=======
+        RAISE_APPLICATION_ERROR(-20901, 'Error, se ingreso un lugar inexistente');
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     END IF;
 
     --Calcular promedio de resenias de cuentas activas
     SELECT NVL(AVG(puntaje), 0) --Si el lugar no tiene resenias en vez de retornar null retorna 0
     INTO v_retorno
     FROM Resenia r
+<<<<<<< HEAD
     INNER JOIN Cuenta c -- se trabaja con la reseña con una cuenta asociada
+=======
+    INNER JOIN Cuenta c
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     ON c.correo_electronico = r.idCuenta
     WHERE r.idLugar = p_lugar
     AND c.estado = 'A';
@@ -577,7 +617,11 @@ WHEN OTHERS THEN RAISE;
 END lugar_puntuacion;
 
 /*Requerimiento 2.5
+<<<<<<< HEAD
 Implementar un servicio que permita a una cuenta publicar una resenia sobre un lugar. El servicio
+=======
+Implementar un servicio que permita a una cuenta publicar una resena sobre un lugar. El servicio
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
 debe retornar la puntuación media del lugar una vez registrada la reseña.*/
 
 CREATE OR REPLACE PROCEDURE publicar_resenia_2_5 (
@@ -627,7 +671,11 @@ BEGIN
     --El puntaje va del 1 al 5
     IF p_resenia_puntaje IS NULL or p_resenia_puntaje NOT BETWEEN 1 AND 5 THEN
         RAISE_APPLICATION_ERROR(-20503, 'El puntaje debe estar entre 1 y 5');
+<<<<<<< HEAD
     END IF; --PREG: es necesario esto? Se hace como restriccion en la p1
+=======
+    END IF;
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
 
     --VALIDAR LUGAR
     --Existe
@@ -649,7 +697,11 @@ BEGIN
     WHERE identificador = p_lugar;
 
     IF v_abierto_lugar <> 1 THEN
+<<<<<<< HEAD
         RAISE_APPLICATION_ERROR(-20506, 'Error, se ingreso un lugar cerrado definitivamente');
+=======
+        RAISE_APPLICATION_ERROR(-20506, 'Error, se ingreso un lugar cerrado');
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
     END IF;
 
 
@@ -672,7 +724,11 @@ BEGIN
         FROM Resenia
         WHERE IdCuenta = p_cuenta
         AND Fecha_Subida >= TRUNC(SYSDATE)
+<<<<<<< HEAD
         AND Fecha_Subida < TRUNC(SYSDATE) + 1; --PREG: saco lo mio ya que está esto?
+=======
+        AND Fecha_Subida < TRUNC(SYSDATE) + 1;
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
 
         IF v_cantidad_resenias_hoy >= 5 THEN
             RAISE_APPLICATION_ERROR(
@@ -710,8 +766,11 @@ EXCEPTION
         RAISE;
 END publicar_resenia_2_5;
 
+<<<<<<< HEAD
 --Preg: poner aca la función?
 --TODO: Termine de ver hasta acá
+=======
+>>>>>>> 659ab1122282fa5be130ea79b532ce9ff440ffd8
 
 /*Requerimiento 2.6
 Implementar un servicio que permita a una cuenta propietaria responder una reseña recibida por un
