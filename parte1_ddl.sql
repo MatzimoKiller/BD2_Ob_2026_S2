@@ -134,13 +134,13 @@ CREATE TABLE Guia_Local(
 
 --Propietario(cuenta, fecha_verificacion_titulo, metodo_verificacion, rut, razon_social)
 CREATE TABLE Propietario(
-    IdCuenta VARCHAR(80),
+    IdPropietario VARCHAR(80),
     Fecha_Verificacion_Titulo DATE DEFAULT SYSDATE NOT NULL, --se coloca la fecha actual del sistema
     Metodo_Verificacion CHAR(1) NOT NULL CHECK(metodo_verificacion in ('P','T','V')), -- "P" (Postal), "T" (Telefónico), "V" (Video)
     RUT NUMBER(15) UNIQUE NOT NULL CHECK(LENGTH(RUT) = 12), --El rut tambien es único TODO
     Razon_Social VARCHAR(20) UNIQUE NOT NULL, --AK
-    PRIMARY KEY(IdCuenta),
-    FOREIGN KEY(IdCuenta) REFERENCES Cuenta(Correo_Electronico)
+    PRIMARY KEY(IdPropietario),
+    FOREIGN KEY(IdPropietario) REFERENCES Cuenta(Correo_Electronico)
 );
 
 --Es_Dueño(propietario, lugar, fecha_comienzo, fecha_fin)
@@ -151,7 +151,7 @@ CREATE TABLE Es_Duenio(
     Fecha_Fin DATE, --Solo al cerrar el lugar o intercambiar de duenio??
     PRIMARY KEY(IdPropietario, IdLugar, Fecha_Comienzo),
     FOREIGN KEY(IdLugar) REFERENCES Lugar(Identificador),
-    FOREIGN KEY(IdPropietario) REFERENCES Propietario(IdCuenta)
+    FOREIGN KEY(IdPropietario) REFERENCES Propietario(IdPropietario)
 );
 
 --Fotografia(id, lugar, fecha_subida, fecha_tomada, descripcion)
@@ -211,7 +211,7 @@ CREATE TABLE Respuesta(
     IdPropietario VARCHAR(80) NOT NULL,   
     PRIMARY KEY (Identificador),
     FOREIGN KEY (IdResenia) REFERENCES Resenia(Identificador),
-    FOREIGN KEY (IdPropietario) REFERENCES Propietario(IdCuenta) 
+    FOREIGN KEY (IdPropietario) REFERENCES Propietario(IdPropietario) 
 );
 
 ---------------------------------------------------------------------------------
@@ -383,6 +383,8 @@ DECLARE
         NULL;   -- lugar inexistente
 END;
 /
+
+/*
 ---------------------------------------------------------------------------------
 --Datos de prueba, revisar que no se rompan las FK, CHECK, UNIQUE, TRIGGERS y que se cumplan los requisitos de cada tabla.
 
@@ -692,3 +694,4 @@ INSERT INTO Respuesta (Texto, IdResenia, IdPropietario) VALUES ('Respuesta de cu
 --ROLLBACK;   -- deshace los casos Prueba (los datos de la parte 1 ya estan confirmados con COMMIT)
 -- solo si alguno de los que no tienen que funcionar, entran
 --Termina la transaccion
+*/

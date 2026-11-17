@@ -12,6 +12,7 @@ horarios, fotografías y reseñas (relacional):*/
         p_out => RESULTADO_A_CONSULTAR
     );
 */
+
 --Da resultado 1 cuando existe un registro para el id y 0 caso contrario.
 CREATE OR REPLACE PROCEDURE validar_existencia (
     p_valor_existencia IN VARCHAR2,
@@ -38,7 +39,7 @@ BEGIN
     USING p_valor_existencia;
 
 END validar_existencia;
-
+/
 
 
 /*Requerimiento 2.1
@@ -53,7 +54,7 @@ CREATE OR REPLACE PROCEDURE crear_lugar_2_1 (
     p_latitud IN Lugar.latitud%TYPE,
     p_categoria_principal IN Lugar.categoria_principal%TYPE,
     p_contenedor IN Contenido.contenedor%TYPE default null,
-    p_propietario IN Es_Dueno.propietario%TYPE default null,
+    p_propietario IN Es_Duenio.IdPropietario%TYPE default null,
     --Direccion se puede insertar por contenedor, ingresando el id de direccion o los valores para crearla.
     --Ingresar parametros para mas de uno de los formatos devolvera una excepcion.
     p_direccion IN Lugar.direccion%TYPE default null,
@@ -82,7 +83,7 @@ BEGIN
     validar_existencia(
         p_valor_existencia => p_categoria_principal,
         p_tabla => 'CATEGORIA',
-        p_campo => 'IDENTIFICADOR',
+        p_campo => 'Nombre',
         p_out => v_cant_cat
     );
 
@@ -174,19 +175,22 @@ BEGIN
     --Validaciones correctas, se insertan los registros 
 
     IF v_valores_direccion = 1 THEN
-        INSERT INTO Direccion(
+        INSERT INTO Direccion (
             Numero,
-            calle,
-            ciudad,
-            pais
+            Calle,
+            Ciudad,
+            Pais
         )
-        VALUES (
-            p_direccion_numero,
-            p_direccion_calle,
-            p_direccion_ciudad,
-            p_direccion_pais
-        )
+            VALUES (
+                p_direccion_numero ,
+                p_direccion_calle ,
+                p_direccion_ciudad ,
+                p_direccion_pais
+            )
         RETURNING Identificador INTO v_id_direccion;
+        
+        
+
     END IF;
 
     INSERT INTO Lugar(
@@ -219,9 +223,9 @@ BEGIN
     END IF;
 
     IF p_propietario is not null THEN
-        INSERT INTO Es_Dueno(
-            propietario,
-            lugar,
+        INSERT INTO Es_Duenio(
+            IdPropietario,
+            IdLugar,
             fecha_comienzo            
         )
         VALUES(
@@ -236,7 +240,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END crear_lugar_2_1;
-
+/
 
 
 /*Requerimiento 2.2
@@ -246,8 +250,8 @@ se encuentren correctamente habilitadas para la transferencia.*/
 
 
 CREATE OR REPLACE PROCEDURE transferir_propietario_2_2 (
-    p_prop_actual IN propietario.IdCuenta%TYPE,
-    p_prop_nuevo IN propietario.IdCuenta%TYPE,
+    p_prop_actual IN propietario.IdPropietario%TYPE,
+    p_prop_nuevo IN propietario.IdPropietario%TYPE,
     p_lugar IN Lugar.Identificador%TYPE
 )AS
     v_cant_prop_actual NUMBER;
@@ -358,7 +362,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END transferir_propietario_2_2;
-
+/
 
 
 
@@ -437,7 +441,7 @@ BEGIN
     FOR UPDATE;
 
     --Generar el número correlativo de la foto
-    SELECT NVL(MAX(Numero_Foto), 0) + 1
+    SELECT NVL(MAX(Identificador), 0) + 1
     INTO v_numero_foto
     FROM Fotografia
     WHERE IdLugar = p_lugar;
@@ -476,7 +480,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END subir_foto_2_3;
-
+/
 
 /*Requerimiento 2.4
 Implementar un servicio que permita suspender una cuenta. En el caso de que la cuenta tenga
@@ -535,7 +539,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END suspender_cuenta_2_4;
-
+/
 
 CREATE OR REPLACE FUNCTION lugar_puntuacion ( 
     p_lugar IN Lugar.Identificador%TYPE
@@ -571,7 +575,7 @@ RETURN v_retorno;
 EXCEPTION 
 WHEN OTHERS THEN RAISE; 
 END lugar_puntuacion;
-
+/
 /*Requerimiento 2.5
 Implementar un servicio que permita a una cuenta publicar una resena sobre un lugar. El servicio
 debe retornar la puntuación media del lugar una vez registrada la reseña.*/
@@ -705,7 +709,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END publicar_resenia_2_5;
-
+/
 
 /*Requerimiento 2.6
 Implementar un servicio que permita a una cuenta propietaria responder una reseña recibida por un
@@ -871,22 +875,15 @@ BEGIN
 
     INSERT INTO Respuesta (
         Texto,
-        IdResenia
+        IdResenia,
+        IdPropietario
     )
     VALUES (
         p_respuesta_texto,
-        p_resenia
+        p_resenia,
+        p_cuenta
     )
     RETURNING Identificador INTO v_id_respuesta;
-
-    INSERT INTO Dada_Por (
-        IdRespuesta,
-        IdPropietario
-    )
-    VALUES(
-        v_id_respuesta,
-        p_cuenta
-    );
 
     COMMIT;    
 
@@ -895,7 +892,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END responder_resenia_2_6;
-
+/
 /*Requerimiento 2.7
 Implementar un servicio que permita a una cuenta indicar que le gustó una reseña, registrando la
 fecha en que lo hizo. Al registrarse el “me gusta”, se deben actualizar los puntos acumulados de la
@@ -999,7 +996,7 @@ EXCEPTION
         ROLLBACK;
         RAISE;
 END dar_me_gusta_2_7;
-
+/
 CREATE OR REPLACE FUNCTION guia_nivel ( 
     p_cuenta IN Guia_Local.IdCuenta%TYPE
     ) 
@@ -1064,7 +1061,7 @@ BEGIN
 EXCEPTION 
     WHEN OTHERS THEN RAISE; 
 END guia_nivel;
-
+/
 
 /*Requerimiento 2.8
 Implementar un servicio que retorne el ranking de las 10 cuentas guía local que más “me gusta”
@@ -1083,14 +1080,16 @@ BEGIN
                COUNT(lg.idResenia) AS total_me_gusta
         FROM Cuenta c
         INNER JOIN Guia_Local gl ON gl.idCuenta = c.correo_electronico
-        INNER JOIN Resenia r ON r.idCuenta = c.correo_electronico
-        INNER JOIN LeGusta lg ON lg.idResenia = r.idResenia
-        INNER JOIN Lugar l ON l.Identificador = r.idLugar
+        INNER JOIN Resenia res ON res.idCuenta = c.correo_electronico
+        INNER JOIN LeGusta lg ON lg.idResenia = res.Identificador
+        INNER JOIN Lugar l ON l.Identificador = res.idLugar
         INNER JOIN Direccion d on d.identificador = l.direccion
         WHERE d.ciudad = p_ciudad
           AND lg.fecha >= SYSDATE - 30 -- Últimos 30 días
           -- Filtro opcional por categoría principal:
-          AND (p_categoria IS NULL OR l.categoria_principal = p_categoria)
+          AND (
+             p_categoria IS NULL OR l.categoria_principal = p_categoria
+          )
         GROUP BY c.Nombre, gl.IdCuenta
         ORDER BY total_me_gusta DESC
         FETCH FIRST 10 ROWS ONLY -- Limita a las 10 mejores cuentas
@@ -1100,3 +1099,4 @@ BEGIN
                              ' | Me gusta: ' || r.total_me_gusta);
     END LOOP;
 END ranking_guias_2_8;
+/
