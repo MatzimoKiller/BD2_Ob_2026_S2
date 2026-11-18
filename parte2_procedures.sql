@@ -96,7 +96,7 @@ BEGIN
         validar_existencia(
             p_valor_existencia => p_propietario,
             p_tabla => 'Propietario',
-            p_campo => 'IdCuenta',
+            p_campo => 'IdPropietario',
             p_out => v_cant_prop
         );
         
@@ -275,7 +275,7 @@ BEGIN
     validar_existencia(
         p_valor_existencia => p_prop_actual,
         p_tabla => 'Propietario',
-        p_campo => 'IdCuenta',
+        p_campo => 'IdPropietario',
         p_out => v_cant_prop_actual
     );
 
@@ -299,7 +299,7 @@ BEGIN
     validar_existencia(
         p_valor_existencia => p_prop_nuevo,
         p_tabla => 'Propietario',
-        p_campo => 'IdCuenta',
+        p_campo => 'IdPropietario',
         p_out => v_cant_prop_nuevo
     );
 
@@ -355,7 +355,7 @@ BEGIN
 
     --Insertar tupla para es_Duenio
     INSERT INTO Es_Duenio (IdPropietario, IdLugar, Fecha_Comienzo)
-    VALUES (p_prop_nuevo, p_lugar, SYSDATE);--PREG: porque incertar el SYSDATE, se hace automático en tabla
+    VALUES (p_prop_nuevo, p_lugar, SYSDATE);-- el SYSDATE se hace automático en tabla, pero se deja para probar
     COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
@@ -377,7 +377,7 @@ CREATE OR REPLACE PROCEDURE subir_foto_2_3 (
     p_cuenta IN Cuenta.correo_electronico%TYPE,
     p_lugar IN Fotografia.idlugar%TYPE,
     p_imagen IN Fotografia.imagen%TYPE,
-    p_fecha_tomada IN Fotografia.fecha_tomada%TYPE default null,
+    p_fecha_tomada IN Fotografia.fecha_tomada%TYPE, 
     p_descripcion IN Fotografia.descripcion%TYPE default null
 ) AS
     v_existe_lugar NUMBER;
@@ -628,7 +628,7 @@ BEGIN
 
     --El puntaje va del 1 al 5
     IF p_resenia_puntaje IS NULL or p_resenia_puntaje NOT BETWEEN 1 AND 5 THEN
-        RAISE_APPLICATION_ERROR(-20503, 'El puntaje debe estar entre 1 y 5'); --PREG: es necesario esto? Se hace como restriccion en tabla en la p1
+        RAISE_APPLICATION_ERROR(-20503, 'El puntaje debe estar entre 1 y 5'); --En tabla ya lo hace, pero se tiene un mensaje explisito, no cambia en dejarlo
     END IF;
 
     --VALIDAR LUGAR
@@ -662,7 +662,8 @@ BEGIN
     SET
         Texto = p_resenia_texto,
         Puntaje = p_resenia_puntaje,
-        Idioma = p_resenia_idioma
+        Idioma = p_resenia_idioma,
+        Fecha_Subida = SYSDATE
     WHERE IdLugar = p_lugar
     AND IdCuenta = p_cuenta;
 
@@ -767,7 +768,7 @@ BEGIN
     validar_existencia(
         p_valor_existencia => p_cuenta,
         p_tabla => 'Propietario',
-        p_campo => 'IdCuenta',
+        p_campo => 'IdPropietario',
         p_out => v_propietario_cuenta
     );
     
@@ -1052,8 +1053,6 @@ BEGIN
     FROM Resenia r
     WHERE r.IdCuenta = p_cuenta;
     
-    --Preg: Calcular puntaje fotos subidas
-
     v_puntaje_base := v_puntaje_resenas_creadas + v_puntaje_me_gusta;
 
     SELECT CASE 
@@ -1097,8 +1096,9 @@ BEGIN
           AND (
              p_categoria IS NULL OR l.categoria_principal = p_categoria
           )
+          AND c.Estado = 'A'
         GROUP BY c.Nombre, gl.IdCuenta
-        ORDER BY total_me_gusta DESC
+        ORDER BY total_me_gusta, c.Nombre DESC
         FETCH FIRST 10 ROWS ONLY -- Limita a las 10 mejores cuentas
     ) LOOP
         DBMS_OUTPUT.PUT_LINE('Guía: ' || r.Nombre ||
