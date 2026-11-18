@@ -219,68 +219,6 @@ CREATE TABLE Respuesta(
 -- Restricciones no estructurales
 --**
 
---============================================--|
---Las Cuentas suspendidas no pueden contribuir--|> -R7
---============================================--|
-
---Vemos en qué estado está la cuenta 
-CREATE OR REPLACE PROCEDURE validar_cuenta_activa (correo IN VARCHAR) AS
-    v_estado Cuenta.Estado%TYPE;
-    BEGIN
-    IF correo IS NULL THEN
-        RAISE_APPLICATION_ERROR(-20010,
-            'Tiene que ingresar la cuenta');            
-    END IF;
- 
-    SELECT Estado INTO v_estado
-      FROM Cuenta
-     WHERE Correo_Electronico = correo;
- 
-    IF v_estado = 'S' THEN
-        RAISE_APPLICATION_ERROR(-20011,
-            'La cuenta ' || correo || ' esta suspendida y no puede contribuir');
-    END IF;
-
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        RAISE_APPLICATION_ERROR(-20012,
-            'La cuenta ' || correo || ' no fue encontrada');
-END validar_cuenta_activa;
-/
---Para ver si puede reseniar
-CREATE OR REPLACE TRIGGER trg_resenia_cuenta_activa
-    BEFORE INSERT OR UPDATE ON Resenia
-    FOR EACH ROW
-    BEGIN
-        validar_cuenta_activa(:NEW.IdCuenta);
-END;
-/
---Para ver si puede subir fotos
-CREATE OR REPLACE TRIGGER trg_subida_por_cuenta_activa
-    BEFORE INSERT OR UPDATE ON Subida_Por
-    FOR EACH ROW
-    BEGIN
-        IF :NEW.IdCuenta IS NOT NULL THEN  --TODO, una foto se puede subir sin una cuenta, ver despues
-            validar_cuenta_activa(:NEW.IdCuenta);
-        END IF;
-END;
-/
---Para ver si puede dar megusta
-CREATE OR REPLACE TRIGGER trg_legusta_cuenta_activa
-    BEFORE INSERT ON LeGusta
-    FOR EACH ROW
-    BEGIN
-        validar_cuenta_activa(:NEW.IdCuenta);
-END;
-/
----Para ver si puede dar respuesta
-CREATE OR REPLACE TRIGGER trg_respuesta_cuenta_activa
-    BEFORE INSERT OR UPDATE ON Respuesta
-    FOR EACH ROW
-    BEGIN
-        validar_cuenta_activa(:NEW.IdPropietario);
-END;
-/
 --==============================================================================--|
 --Una cuenta no puede reseñar un mismo lugar dos veces, se remplaza con la nueva--|> -R53
 --==============================================================================--|
@@ -310,31 +248,7 @@ BEGIN
     END IF;
 END;
 /
---======================================================--|
---Una cuenta no puede reseñar más de cinco veces al día --|> -R55
---======================================================--|
 
-CREATE OR REPLACE TRIGGER trg_resenia_max_5_por_dia
-BEFORE INSERT ON Resenia
-FOR EACH ROW
-DECLARE
-    v_total NUMBER;
-    BEGIN
-        -- Reseñas que la cuenta ya tiene ese dia y se guarda la cantidad en v_total
-        SELECT COUNT(*) INTO v_total
-          FROM Resenia
-         WHERE IdCuenta = :NEW.IdCuenta
-           AND TRUNC(Fecha_Subida) = TRUNC(SYSDATE); --Se ve que sea la misma fecha
-            --TRUNC es para sacar las horas, minutos y segundos, y comparar solo la fecha
-
-        IF v_total >= 5 THEN --Vemos si ya tiene 5 reseñas ese dia, si es asi, no puede hacer más 
-            RAISE_APPLICATION_ERROR(-20013,
-                'La cuenta ' || :NEW.IdCuenta ||
-                ' no puede reseñar mas de 5 veces en un mismo dia');
-            --Cualquier cosa lo hacemos para el usuario el mensaje y no para nosotros
-        END IF;
-END;
-/
 --==========================================--|
 --Un lugar cerrado no admite nuevas reseñas --|> -R57
 --==========================================--|
@@ -359,6 +273,7 @@ DECLARE
         NULL;   -- lugar inexistente
 END;
 /
+
 --=============================================================--|
 --Una categoria secundaria no puede ser igual que la principal --|> -R76
 --=============================================================--|
@@ -384,7 +299,6 @@ DECLARE
 END;
 /
 
-/*
 ---------------------------------------------------------------------------------
 --Datos de prueba, revisar que no se rompan las FK, CHECK, UNIQUE, TRIGGERS y que se cumplan los requisitos de cada tabla.
 
@@ -677,7 +591,7 @@ INSERT INTO Respuesta (Texto, IdResenia, IdPropietario) VALUES ('Respuesta de cu
 -- Dos respuestas para la misma reseña 
 INSERT INTO Respuesta (Texto, IdResenia, IdPropietario) VALUES ('Segunda respuesta para la misma reseña', 1, 'juan@gmail.com');
 
-
+/*
 --****--
 --Cuenta suspendida, no puede contribuir ('ana@gmail.com')
 --****--
@@ -689,9 +603,8 @@ INSERT INTO Subida_Por (IdFotografia, IdLugar, IdCuenta) VALUES (1, 1, 'ana@gmai
 INSERT INTO LeGusta (IdCuenta, IdResenia) VALUES ('ana@gmail.com', 1);
 -- responder
 INSERT INTO Respuesta (Texto, IdResenia, IdPropietario) VALUES ('Respuesta de cuenta suspendida', 1, 'ana@gmail.com');
+*/
 
-
---ROLLBACK;   -- deshace los casos Prueba (los datos de la parte 1 ya estan confirmados con COMMIT)
+ROLLBACK;   -- deshace los casos Prueba (los datos de la parte 1 ya estan confirmados con COMMIT)
 -- solo si alguno de los que no tienen que funcionar, entran
 --Termina la transaccion
-*/

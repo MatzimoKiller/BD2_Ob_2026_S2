@@ -355,7 +355,7 @@ BEGIN
 
     --Insertar tupla para es_Duenio
     INSERT INTO Es_Duenio (IdPropietario, IdLugar, Fecha_Comienzo)
-    VALUES (p_prop_nuevo, p_lugar, SYSDATE);
+    VALUES (p_prop_nuevo, p_lugar, SYSDATE);--PREG: porque incertar el SYSDATE, se hace automático en tabla
     COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
@@ -447,16 +447,16 @@ BEGIN
     WHERE IdLugar = p_lugar;
 
     --Insertar
-    INSERT INTO Fotografia (
-        IdLugar,
+    INSERT INTO Fotografia ( 
         Identificador,
+        IdLugar,
         Imagen,
         Fecha_Tomada,
         Descripcion
     )
     VALUES (
-        p_lugar,
         v_numero_foto,
+        p_lugar,
         p_imagen,
         p_fecha_tomada,
         p_descripcion
@@ -541,7 +541,12 @@ EXCEPTION
 END suspender_cuenta_2_4;
 /
 
-CREATE OR REPLACE FUNCTION lugar_puntuacion ( 
+
+/*Requerimiento 2.5
+Implementar un servicio que permita a una cuenta publicar una resena sobre un lugar. El servicio
+debe retornar la puntuación media del lugar una vez registrada la reseña.*/
+
+CREATE OR REPLACE FUNCTION lugar_puntuacion ( --Campo derivado de Lugar
     p_lugar IN Lugar.Identificador%TYPE
     ) 
 RETURN NUMBER AS 
@@ -576,9 +581,6 @@ EXCEPTION
 WHEN OTHERS THEN RAISE; 
 END lugar_puntuacion;
 /
-/*Requerimiento 2.5
-Implementar un servicio que permita a una cuenta publicar una resena sobre un lugar. El servicio
-debe retornar la puntuación media del lugar una vez registrada la reseña.*/
 
 CREATE OR REPLACE PROCEDURE publicar_resenia_2_5 (
     p_cuenta IN Cuenta.correo_electronico%TYPE,
@@ -626,7 +628,7 @@ BEGIN
 
     --El puntaje va del 1 al 5
     IF p_resenia_puntaje IS NULL or p_resenia_puntaje NOT BETWEEN 1 AND 5 THEN
-        RAISE_APPLICATION_ERROR(-20503, 'El puntaje debe estar entre 1 y 5');
+        RAISE_APPLICATION_ERROR(-20503, 'El puntaje debe estar entre 1 y 5'); --PREG: es necesario esto? Se hace como restriccion en tabla en la p1
     END IF;
 
     --VALIDAR LUGAR
@@ -933,7 +935,7 @@ BEGIN
     IF v_estado_cuenta <> 'A' THEN
         RAISE_APPLICATION_ERROR(
             -20702,
-            'Error, la cuenta no está activa, no puede responder'
+            'Error, la cuenta no está activa, no puede dar me gusta'
         );
     END IF;
 
@@ -997,7 +999,16 @@ EXCEPTION
         RAISE;
 END dar_me_gusta_2_7;
 /
-CREATE OR REPLACE FUNCTION guia_nivel ( 
+
+
+/*Requerimiento 2.8
+Implementar un servicio que retorne el ranking de las 10 cuentas guía local que más “me gusta”
+recibieron en sus reseñas durante los últimos 30 días, dentro de una ciudad determinada. El servicio
+debe permitir un parámetro opcional para filtrar por categoría principal del lugar reseñado. El listado
+debe incluir el nombre para mostrar de la cuenta, su nivel y la cantidad de “me gusta” recibidos.*/
+
+
+CREATE OR REPLACE FUNCTION guia_nivel (  --Campo derivado de Guia_Local
     p_cuenta IN Guia_Local.IdCuenta%TYPE
     ) 
 RETURN NUMBER AS 
@@ -1034,12 +1045,14 @@ BEGIN
     INNER JOIN Resenia r
     ON r.Identificador = lg.IdResenia
     WHERE r.IdCuenta = p_cuenta;
-
+    
     --Calcular puntaje resenias creadas
     SELECT COUNT(*)
     INTO v_puntaje_resenas_creadas
     FROM Resenia r
     WHERE r.IdCuenta = p_cuenta;
+    
+    --Preg: Calcular puntaje fotos subidas
 
     v_puntaje_base := v_puntaje_resenas_creadas + v_puntaje_me_gusta;
 
@@ -1062,12 +1075,6 @@ EXCEPTION
     WHEN OTHERS THEN RAISE; 
 END guia_nivel;
 /
-
-/*Requerimiento 2.8
-Implementar un servicio que retorne el ranking de las 10 cuentas guía local que más “me gusta”
-recibieron en sus reseñas durante los últimos 30 días, dentro de una ciudad determinada. El servicio
-debe permitir un parámetro opcional para filtrar por categoría principal del lugar reseñado. El listado
-debe incluir el nombre para mostrar de la cuenta, su nivel y la cantidad de “me gusta” recibidos.*/
 
 CREATE OR REPLACE PROCEDURE ranking_guias_2_8 (
     p_ciudad IN Direccion.Ciudad%TYPE, 
